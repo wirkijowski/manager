@@ -11,62 +11,51 @@ class TaxClass(models.Model):
 
     class Meta:
         db_table = 'taxclass'
+    
+    def __unicode__(self):
+        return self.title
 
-
-class ServiceType(models.Model):
-    service_type = models.CharField(max_length=60)
-
-    class Meta:
-        db_table = 'servicetype'
-
-
-class Service(models.Model):
-    service_type = models.ForeignKey(ServiceType)
+class Services(models.Model):
+    service_name = models.CharField(max_length=60,primary_key=True)
     available_to = models.DateTimeField(blank=True,null=True)
     tax_class = models.ForeignKey(TaxClass)
-    price = models.FloatField()
-
-    class Meta:
-        db_table = 'service'
-
-
-
-class ServiceParamType(models.Model):
-    param_type = models.TextField()
- 
-    class Meta:
-        db_table = 'serviceparamtype'
-
-   
-class ServiceParam(models.Model):
-    service = models.ForeignKey(Service)
-    service_param_type = models.ForeignKey(ServiceParamType)
-    name = models.CharField(max_length=60)
+    base_price = models.FloatField()
     description = models.TextField()
-    price = models.FloatField()
+
+    class Meta:
+        db_table = 'services'
+
+    def __unicode__(self):
+        return self.service_name
+
+class ParamUnits(models.Model):
+    unit = models.CharField(max_length=4,primary_key=True)
+
+    class Meta:
+        db_table = 'paramunits'
+
+class ServiceParams(models.Model):
+    service = models.ForeignKey(Services, related_name='params')
+    param_name = models.CharField(max_length=60)
+    description = models.TextField()
+    min_value = models.FloatField()
+    max_value = models.FloatField()
+    step_value = models.FloatField()
+    unit = models.ForeignKey(ParamUnits)
+    unit_price = models.FloatField()
     available_to = models.DateTimeField(null=True,blank=True)
     sort_order = models.IntegerField()
 
     class Meta:
-        db_table = 'serviceparam'
+        db_table = 'serviceparams'
+
+    def __unicode__(self):
+        return self.param_name
 
 
-class ServiceParamValue(models.Model):
-    service_param = models.ForeignKey(ServiceParam)
-    name = models.CharField(max_length=60)
-    description = models.TextField()
-    value = models.TextField()
-    price = models.FloatField(default=0.0)
-    available_to = models.DateTimeField(null=True, blank=True)
-    sort_order = models.IntegerField()
-
-    class Meta:
-        db_table = 'serviceparamvalue'
-
-
-class UsersService(models.Model):
+class UsersServices(models.Model):
     user = models.ForeignKey(User)
-    service = models.ForeignKey(Service)
+    service = models.ForeignKey(Services)
     customers_description = models.TextField(max_length=255)
     admin_disabled = models.BooleanField(default=False)
     admin_reason = models.TextField(max_length=255)
@@ -75,46 +64,38 @@ class UsersService(models.Model):
     price = models.FloatField(default=0.0)
 
     class Meta:
-        db_table = 'usersservice'
+        db_table = 'usersservices'
 
 
-class UsersServiceDomain(models.Model):
-    users_service = models.ForeignKey(UsersService)
-    fqdn = models.URLField()
+class UsersServiceDomains(models.Model):
+    users_service = models.ForeignKey(UsersServices)
+    fqdn = models.URLField(unique=True)
 
     class Meta:
-        db_table = 'usersservicedomain'
+        db_table = 'usersservicedomains'
 
 
 
-class UsersServiceHistory(models.Model):
-    users_service = models.ForeignKey(UsersService)
+class UsersServicesHistory(models.Model):
+    users_service = models.ForeignKey(UsersServices)
     active_from = models.DateTimeField(auto_now_add=True)
     active_to = models.DateTimeField(null=True)
     price = models.FloatField()
 
     class Meta:
-        db_table = 'usersservicehistory'
+        db_table = 'usersserviceshistory'
 
 
-class UsersServiceParamHistory(object):
-    users_service_history = models.ForeignKey(UsersServiceHistory)
-    service_param = models.ForeignKey(ServiceParam)
-    service_param_value = models.ForeignKey(ServiceParamValue)
+class UsersServiceParamsHistory(models.Model):
+    users_service_history = models.ForeignKey(UsersServicesHistory)
+    service_param = models.ForeignKey(ServiceParams)
+    service_param_value = models.FloatField()
     price = models.FloatField()
 
     class Meta:
-        db_table = 'usersserviceparamhistory'
+        db_table = 'usersserviceparamshistory'
 
 
-class UsersServiceChoosenParam(models.Model):
-    users_services = models.ForeignKey(UsersService)
-    service_param = models.ForeignKey(ServiceParam)
-    service_param_value = models.ForeignKey(ServiceParamValue)
-    price = models.FloatField()
-
-    class Meta:
-        db_table = 'usersservicechoosenparam'
 
 
 
