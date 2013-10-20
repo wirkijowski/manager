@@ -23,15 +23,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAdminUser
 
 
-class MultipleFieldLookupMixin(object):
+#class MultipleFieldLookupMixin(object):
 
-    def get_object(self):
-        queryset = self.get_queryset()             # Get the base queryset
-        queryset = self.filter_queryset(queryset)  # Apply any filter backends
-        filter = {}
-        for field in self.lookup_fields:
-            filter[field] = self.kwargs[field]
-        return get_object_or_404(queryset, **filter)  # Lookup the object
+#    def get_object(self):
+#        queryset = self.get_queryset()             # Get the base queryset
+#        queryset = self.filter_queryset(queryset)  # Apply any filter backends
+#        filter = {}
+#        for field in self.lookup_fields:
+#            filter[field] = self.kwargs[field]
+#        return get_object_or_404(queryset, **filter)  # Lookup the object
 
 @api_view(('GET',))
 def api_root(request, format=None):
@@ -62,18 +62,20 @@ def admin_api(request, format=None):
         })
 
 class UserList(generics.ListAPIView):
+    permission_classes = ( IsAdminUser, )
 
     queryset = User.objects.all()
     serializer_class = UserListSerializer
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = ( IsAdminUser, )
 
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     lookup_field = 'username'
 
 class ServicesList(generics.ListCreateAPIView):
-
+    permission_classes = ( IsAdminUser, )
     queryset = Services.objects.all()
 
 
@@ -83,13 +85,15 @@ class ServicesList(generics.ListCreateAPIView):
         return ServicesListSerializerPOST
 
 class ServiceDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = ( IsAdminUser, )
+
     queryset = Services.objects.all()
     serializer_class = ServiceDetailSerializer
     lookup_field = 'service_name'
 
 
 class ServiceParamsList(generics.ListCreateAPIView):
-
+    permission_classes = ( IsAdminUser, )
     def get_queryset(self):
         service=self.kwargs['service_name']
         queryset = ServiceParams.objects.filter(service=service)
@@ -102,7 +106,9 @@ class ServiceParamsList(generics.ListCreateAPIView):
         filter['param_name'] = self.kwargs['param_name']
         obj = get_object_or_404(queryset, **filter)
 
+        self.check_object_permissions(self.request, obj)
         return obj
+
     def get_serializer_class(self):
         if self.request.method == 'GET' and not hasattr(self, 'response'):
             return ServiceParamsListSerializerGET
@@ -116,7 +122,7 @@ class ServiceParamsList(generics.ListCreateAPIView):
 
 
 class ServiceParamsDetail(generics.RetrieveUpdateDestroyAPIView):
-
+    permission_classes = ( IsAdminUser, )
     serializer_class = ServiceParamsDetailSerializer
 
     def get_queryset(self):
@@ -130,21 +136,29 @@ class ServiceParamsDetail(generics.RetrieveUpdateDestroyAPIView):
         queryset = self.get_queryset()
         obj = get_object_or_404(queryset)
 
+        self.check_object_permissions(self.request, obj)
         return obj
 
 class TaxClassList(generics.ListCreateAPIView):
+    permission_classes = ( IsAdminUser, )
     queryset = TaxClass.objects.all()
     serializer_class = TaxClassDetailSerializer
 
 class TaxClassDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = ( IsAdminUser, )
+
     queryset = TaxClass.objects.all()
     serializer_class = TaxClassDetailSerializer
 
 class ParamUnitsList(generics.ListCreateAPIView):
+    permission_classes = ( IsAdminUser, )
+
     queryset = ParamUnits.objects.all()
     serializer_class = ParamUnitsListSerializer
 
 class ParamUnitsDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = ( IsAdminUser, )
+    
     queryset = ParamUnits.objects.all()
     serializer_class = ParamUnitsDetailSerializer
 
