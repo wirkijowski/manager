@@ -19,7 +19,7 @@ class Services(models.Model):
     service_name = models.CharField(max_length=60,primary_key=True)
     available_to = models.DateTimeField(blank=True,null=True)
     tax_class = models.ForeignKey(TaxClass)
-    base_price = models.FloatField()
+    base_price = models.FloatField(default=0.0)
     description = models.TextField()
 
     class Meta:
@@ -29,7 +29,7 @@ class Services(models.Model):
         return self.service_name
 
 class ParamUnits(models.Model):
-    unit = models.CharField(max_length=4,primary_key=True)
+    unit = models.CharField(max_length=10,primary_key=True)
 
     class Meta:
         db_table = 'paramunits'
@@ -37,14 +37,14 @@ class ParamUnits(models.Model):
 class ServiceParams(models.Model):
     service = models.ForeignKey(Services, related_name='params')
     param_name = models.CharField(max_length=60)
-    description = models.TextField()
-    min_value = models.FloatField()
-    max_value = models.FloatField()
-    step_value = models.FloatField()
+    description = models.TextField(null=True)
+    min_value = models.FloatField(null=True)
+    max_value = models.FloatField(null=True)
+    step_value = models.FloatField(null=True)
     unit = models.ForeignKey(ParamUnits)
-    unit_price = models.FloatField()
+    unit_price = models.FloatField(default=0.0)
     available_to = models.DateTimeField(null=True,blank=True)
-    sort_order = models.IntegerField()
+    sort_order = models.IntegerField(null=True)
 
     class Meta:
         db_table = 'serviceparams'
@@ -56,9 +56,10 @@ class ServiceParams(models.Model):
 class UsersServices(models.Model):
     user = models.ForeignKey(User)
     service = models.ForeignKey(Services)
-    customers_description = models.TextField(max_length=255)
+    name = models.CharField(max_length=60)
+    description = models.TextField(max_length=255, null=True)
     admin_disabled = models.BooleanField(default=False)
-    admin_reason = models.TextField(max_length=255)
+    admin_reason = models.TextField(max_length=255,null=True)
     deleted = models.BooleanField(default=False)
     change = models.BooleanField(default=True)
     price = models.FloatField(default=0.0)
@@ -66,9 +67,24 @@ class UsersServices(models.Model):
     class Meta:
         db_table = 'usersservices'
 
+#customer_service_choosen_param_table = schema.Table('customer_service_choosen_param', metadata,
+#    schema.Column('id', types.Integer, primary_key=True),
+#    (schema.Column('customer_service_id', types.Integer,
+#        schema.ForeignKey('customer_service.id'), nullable=False)),
+#    (schema.Column('service_param_id',  types.Integer,
+#        schema.ForeignKey('service_param.id'), nullable=False)),
+#    (schema.Column('service_param_value_id',  types.Integer,
+#        schema.ForeignKey('service_param_value.id'), nullable=False)),
+#    schema.Column('price', types.Float(4), default=0.0),
+#)
+
+class UsersServicesParams(models.Model):
+    users_service = models.ForeignKey(UsersServices, related_name='user-params')
+    services_param = models.ForeignKey(ServiceParams)
+    price =  models.FloatField(default=0.0)
 
 class UsersServiceDomains(models.Model):
-    users_service = models.ForeignKey(UsersServices)
+    users_service = models.ForeignKey(UsersServices, related_name='user-domains')
     fqdn = models.URLField(unique=True)
 
     class Meta:

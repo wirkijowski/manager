@@ -11,10 +11,12 @@ from control.serializers import ServiceParamsDetailSerializer
 from control.serializers import TaxClassDetailSerializer
 from control.serializers import ParamUnitsListSerializer
 from control.serializers import ParamUnitsDetailSerializer
+from control.serializers import AppsListSerializer
 from control.models import Services
 from control.models import ServiceParams
 from control.models import TaxClass
 from control.models import ParamUnits
+from control.models import UsersServices
 from rest_framework.decorators import api_view
 from rest_framework.decorators import permission_classes
 from rest_framework.response import Response
@@ -164,4 +166,13 @@ class ParamUnitsDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 class AppsList(generics.ListCreateAPIView):
-    pass
+    serializer_class = AppsListSerializer
+
+    def get_queryset(self):
+
+        username = self.request.user
+        return UsersServices.objects.filter(user=username)
+
+    def pre_save(self, obj):
+        obj.user = self.request.user
+        obj.service = Services.objects.get(service_name='application')
