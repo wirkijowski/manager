@@ -1,22 +1,22 @@
-from control.serializers import UserListSerializer, UserDetailSerializer
+from api.serializers import UserListSerializer, UserDetailSerializer
 from rest_framework import generics
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from control.serializers import ServicesListSerializerGET
-from control.serializers import ServicesListSerializerPOST
-from control.serializers import ServiceDetailSerializer
-from control.serializers import ServiceParamsListSerializerGET
-from control.serializers import ServiceParamsListSerializerPOST
-from control.serializers import ServiceParamsDetailSerializer
-from control.serializers import TaxClassDetailSerializer
-from control.serializers import ParamUnitsListSerializer
-from control.serializers import ParamUnitsDetailSerializer
-from control.serializers import AppsListSerializer
-from control.models import Services
-from control.models import ServiceParams
-from control.models import TaxClass
-from control.models import ParamUnits
-from control.models import UsersServices
+from api.serializers import ServicesListSerializerGET
+from api.serializers import ServicesListSerializerPOST
+from api.serializers import ServiceDetailSerializer
+from api.serializers import ServiceParamsListSerializerGET
+from api.serializers import ServiceParamsListSerializerPOST
+from api.serializers import ServiceParamsDetailSerializer
+from api.serializers import TaxClassDetailSerializer
+from api.serializers import ParamUnitsListSerializer
+from api.serializers import ParamUnitsDetailSerializer
+from api.serializers import AppsListSerializer
+from api.models import Services
+from api.models import ServiceParams
+from api.models import TaxClass
+from api.models import ParamUnits
+from api.models import UsersServices
 from rest_framework.decorators import api_view
 from rest_framework.decorators import permission_classes
 from rest_framework.response import Response
@@ -24,16 +24,6 @@ from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAdminUser
 
-
-#class MultipleFieldLookupMixin(object):
-
-#    def get_object(self):
-#        queryset = self.get_queryset()             # Get the base queryset
-#        queryset = self.filter_queryset(queryset)  # Apply any filter backends
-#        filter = {}
-#        for field in self.lookup_fields:
-#            filter[field] = self.kwargs[field]
-#        return get_object_or_404(queryset, **filter)  # Lookup the object
 
 @api_view(('GET',))
 def api_root(request, format=None):
@@ -176,3 +166,16 @@ class AppsList(generics.ListCreateAPIView):
     def pre_save(self, obj):
         obj.user = self.request.user
         obj.service = Services.objects.get(service_name='application')
+
+
+class AppsDetail(generics.RetrieveUpdateDestroyAPIView):
+    #do przepisania na get_queryset
+    queryset = UsersServices.objects.all()
+    serializer_class = AppsListSerializer
+
+    def get_object(self):
+        #appname = 'druga aplikacja'
+        appname = self.kwargs['appname']
+        user = self.request.user
+        service =  Services.objects.get(service_name='application')
+        return UsersServices.objects.get(name=appname, user=user, service=service)

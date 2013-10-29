@@ -67,16 +67,9 @@ class UsersServices(models.Model):
     class Meta:
         db_table = 'usersservices'
 
-#customer_service_choosen_param_table = schema.Table('customer_service_choosen_param', metadata,
-#    schema.Column('id', types.Integer, primary_key=True),
-#    (schema.Column('customer_service_id', types.Integer,
-#        schema.ForeignKey('customer_service.id'), nullable=False)),
-#    (schema.Column('service_param_id',  types.Integer,
-#        schema.ForeignKey('service_param.id'), nullable=False)),
-#    (schema.Column('service_param_value_id',  types.Integer,
-#        schema.ForeignKey('service_param_value.id'), nullable=False)),
-#    schema.Column('price', types.Float(4), default=0.0),
-#)
+    def __unicode__(self):
+        return self.name
+
 
 class UsersServicesParams(models.Model):
     users_service = models.ForeignKey(UsersServices, related_name='user-params')
