@@ -1,5 +1,5 @@
 from django.conf.urls import patterns, include, url
-from control.views import *
+from api.views import *
 from rest_framework.urlpatterns import format_suffix_patterns
 from django.conf.urls import include
 from django.contrib import admin
@@ -12,7 +12,7 @@ admin.autodiscover()
 #router.register(r'users', UserViewSet)
 
 
-urlpatterns = format_suffix_patterns(patterns('control.views',
+urlpatterns = format_suffix_patterns(patterns('api.views',
     # Examples:
     url(r'^$', 'api_root'),
     url(r'^admin/$', 'admin_api',
@@ -47,6 +47,8 @@ urlpatterns = format_suffix_patterns(patterns('control.views',
 
     url(r'apps/$', AppsList.as_view(),
         name='apps-list'),
+    url(r'apps/(?P<appname>[\w]+)/$', AppsDetail.as_view(),
+        name='apps-detail'),
     # Uncomment the admin/doc line below to enable admin documentation:
     # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
