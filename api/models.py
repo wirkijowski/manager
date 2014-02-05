@@ -72,12 +72,12 @@ class UsersServices(models.Model):
 
 
 class UsersServicesParams(models.Model):
-    users_service = models.ForeignKey(UsersServices, related_name='user-params')
-    services_param = models.ForeignKey(ServiceParams)
+    users_service = models.ForeignKey(UsersServices, related_name='user_services_params')
+    services_param = models.ForeignKey(ServiceParams, related_name='')
     price =  models.FloatField(default=0.0)
 
 class UsersServiceDomains(models.Model):
-    users_service = models.ForeignKey(UsersServices, related_name='user-domains')
+    users_service = models.ForeignKey(UsersServices, related_name='user_domains')
     fqdn = models.URLField(unique=True)
 
     class Meta:

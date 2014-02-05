@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.forms import widgets
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 from api.models import Services
@@ -6,6 +7,7 @@ from api.models import ServiceParams
 from api.models import TaxClass
 from api.models import ParamUnits
 from api.models import UsersServices
+from api.models import UsersServicesParams
 
 class UserListSerializer(serializers.HyperlinkedModelSerializer):
 
@@ -108,23 +110,58 @@ class ParamUnitsDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParamUnits
 
+class AppsSerializer(serializers.Serializer):
+    name = serializers.CharField(required=True, max_length=60)
+    description = serializers.CharField(widget=widgets.Textarea,
+                                             max_length=255)
+#    params = 
+    uri = serializers.SerializerMethodField('get_app_uri')
 
-class AppsListSerializer(serializers.ModelSerializer):
-    #TODO: walidacja nazwy instancji aplikacji/uslugi stworzonej przez klienta
-    #TODO: nazwa musi byc unikalna w ramach jednego klienta i nie moze miec spacji
-
-    url = serializers.SerializerMethodField('get_app_url')
-
-    class Meta:
-        model = UsersServices
-        fields = ( 'url', 'name', 'description' )
-
-    def get_app_url(self, obj):
+    def get_app_uri(self, obj):
         return reverse('apps-detail', kwargs={'appname': obj}, request=self.context['request'] )
 
-    def validate(self, attrs):
-        user = ( self.context['request'].parser_context['view']
-                .request.user)
-#        us = UsersServices.objects.get(
+    def validate_name(self, attrs, name):
 
-        return attrs
+        #TODO:
+        #   - validate chars (ex no white space)
+
+        #Validate if name is uniq for particular user's services
+        #when creating new resource or changing name
+        method = self.context['request'].method
+        user = ( self.context['request'].parser_context['view']
+                    .request.user )
+        # check what is submited (attrs not kwargs - part of URI)
+        us = UsersServices.objects.filter(user=user,name=attrs['name']).count()
+
+        attr = attrs['name']
+
+
+        if method == 'POST' and us !=0:
+            raise serializers.ValidationError( "Application " + attrs['name'] + "  exists.")
+        #when resource whth submited name exists
+        elif (method == 'PUT' or method == 'PATCH') and us!=0 and attr != (
+            self.context['request'].parser_context['view'].kwargs['appname'] ):
+
+            raise serializers.ValidationError( "Application " + attrs['name'] + "  exists.")
+
+        else:
+            print attrs
+            return attrs
+
+
+    def restore_object(self, attrs, instance=None):
+        if instance is not None:
+            instance.name =  attrs.get('name', instance.name)
+            instance.description = attrs.get('name', instance.name)
+            return instance
+
+        newUsersService = UsersServices()
+        newUsersService.user = User.objects.get(username=self.context['request'].parser_context['view'].request.user )
+
+        newUsersService.service = Services.objects.get(service_name='application')
+        newUsersService.name = attrs['name']
+        newUsersService.description = attrs['description']
+
+        return newUsersService
+
+

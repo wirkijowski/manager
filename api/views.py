@@ -11,7 +11,7 @@ from api.serializers import ServiceParamsDetailSerializer
 from api.serializers import TaxClassDetailSerializer
 from api.serializers import ParamUnitsListSerializer
 from api.serializers import ParamUnitsDetailSerializer
-from api.serializers import AppsListSerializer
+from api.serializers import AppsSerializer
 from api.models import Services
 from api.models import ServiceParams
 from api.models import TaxClass
@@ -23,7 +23,10 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAdminUser
-
+from rest_framework.response import Response
+from rest_framework import status
+from django.http import Http404
+from rest_framework import serializers
 
 @api_view(('GET',))
 def api_root(request, format=None):
@@ -156,26 +159,55 @@ class ParamUnitsDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 class AppsList(generics.ListCreateAPIView):
-    serializer_class = AppsListSerializer
-
+#    serializer_class = AppsListSerializer
+    serializer_class = AppsSerializer
     def get_queryset(self):
 
         username = self.request.user
-        return UsersServices.objects.filter(user=username)
+        return UsersServices.objects.filter(user=username,deleted=False)
 
+    
     def pre_save(self, obj):
         obj.user = self.request.user
-        obj.service = Services.objects.get(service_name='application')
+    #    obj.service = Services.objects.get(service_name='application')
+
+    def post(self, request, format=None):
+        serializer = AppsSerializer(data=request.DATA, context={'request':
+            request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AppsDetail(generics.RetrieveUpdateDestroyAPIView):
     #do przepisania na get_queryset
     queryset = UsersServices.objects.all()
-    serializer_class = AppsListSerializer
+    serializer_class = AppsSerializer
 
     def get_object(self):
         #appname = 'druga aplikacja'
         appname = self.kwargs['appname']
         user = self.request.user
         service =  Services.objects.get(service_name='application')
-        return UsersServices.objects.get(name=appname, user=user, service=service)
+
+   #     userservice = UsersServices.objects.get(name=appname, user=user, service=service)
+
+        try:
+            return UsersServices.objects.get(name=appname, user=user, service=service, deleted=False)
+        except UsersServices.DoesNotExist:
+            raise Http404
+
+  #      if userservice.deleted:
+  #          return Response( { appname: "Not found"}, status=status.HTTP_404_NOT_FOUND)
+  #     else:
+  #          return userservice
+
+        #return get_object_or_404(UsersServices.objects.get(name=appname, user=user, service=service, deleted=False))
+
+    def delete(self, request, *args, **kwargs):
+        userservice = self.get_object()
+        userservice.deleted = True
+        userservice.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
