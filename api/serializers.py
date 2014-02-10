@@ -8,6 +8,7 @@ from api.models import TaxClass
 from api.models import ParamUnits
 from api.models import UsersServices
 from api.models import UsersServicesParams
+from api.models import UsersServiceDomains
 
 class UserListSerializer(serializers.HyperlinkedModelSerializer):
 
@@ -110,12 +111,36 @@ class ParamUnitsDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParamUnits
 
+
+####################################################################
+
+class ParamsSerializer(serializers.Serializer):
+    pass
+
+class DomainSerializer(serializers.ModelSerializer):
+#    fqdn = serializers.URLField()
+    class Meta:
+        model = UsersServiceDomains
+        fields = ('fqdn',)
+    
+    def restore_object(self, attrs, instance=None):
+        if instance is not None:
+            instance.users_service =  attrs.get('users_service',
+                    instance.users_service)
+            instance.fqdn = attrs.get('fqdn', instance.fqdn)
+            return instance
+#
+        domain = UsersServiceDomains()
+        domain.fqdn = attrs['fqdn']
+        return domain
+
+
 class AppsSerializer(serializers.Serializer):
     name = serializers.CharField(required=True, max_length=60)
     description = serializers.CharField(widget=widgets.Textarea,
                                              max_length=255)
-#    params = 
     uri = serializers.SerializerMethodField('get_app_uri')
+    user_domains = DomainSerializer(many=True, allow_add_remove=True)
 
     def get_app_uri(self, obj):
         return reverse('apps-detail', kwargs={'appname': obj}, request=self.context['request'] )
@@ -145,7 +170,7 @@ class AppsSerializer(serializers.Serializer):
             raise serializers.ValidationError( "Application " + attrs['name'] + "  exists.")
 
         else:
-            print attrs
+            #print attrs
             return attrs
 
 
@@ -155,13 +180,22 @@ class AppsSerializer(serializers.Serializer):
             instance.description = attrs.get('name', instance.name)
             return instance
 
+       # print dict(attrs)
+       # print attrs['user_domains']
         newUsersService = UsersServices()
         newUsersService.user = User.objects.get(username=self.context['request'].parser_context['view'].request.user )
 
         newUsersService.service = Services.objects.get(service_name='application')
         newUsersService.name = attrs['name']
         newUsersService.description = attrs['description']
+        newUsersService.save()
 
+        for domain in attrs['user_domains']:
+            newDomain = UsersServiceDomains() #.objects.create(fqdn=domain['fqdn'])
+            newDomain = domain
+            newUsersService.user_domains.add(newDomain)
+        
         return newUsersService
 
-
+    def save(self, **kwargs):
+        return self.object
