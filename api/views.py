@@ -173,7 +173,7 @@ class AppsList(APIView):
         obj.service = Services.objects.get(service_name='application')
     def get(self, request, format=None):
         serializer = AppsSerializer(self.get_queryset(), context={'request':
-            request})
+            request}, fields= {'name', 'uri'})
         return Response(serializer.data)
 
     def post(self, request, format=None):

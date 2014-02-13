@@ -155,24 +155,6 @@ class ParamsSerializer(serializers.Serializer):
         else:
             raise serializers.ValidationError( "Wrong value " + value )
 
-
-
-#    def restore_object(self, attrs, instance=None): 
-#        pass
-#    ''' 
-#    do aplikacji musza byc zawsze przypisane wszystkie mozliwe parametry
-#    uzytkownik moze wybrac tylko jedna wartosc
-#    tak wiec nazwa parametru zawsze bedzie tylko do odczytu i nie moze byc
-#    zmieniona
-#
-#    trzeba tez dodac standardowe przypisywanie parametrow; trzeba by to tez
-#    zabezpieczyc jakos na poziomie bazy danych jakas procedura skladowana czy
-#    czymws w tym rodzaju
-#    '''
-#
- #   class Meta:
- #       model = UsersServicesParams
- #       fields = ('name', 'price', 'value', 'value_units')
     
 
 class DomainSerializer(serializers.ModelSerializer):
@@ -216,6 +198,17 @@ class AppsSerializer(serializers.Serializer):
     uri = serializers.SerializerMethodField('get_app_uri')
     domains = DomainSerializer(source='user_domains', many=True, allow_add_remove=True)
     params = ParamsSerializer(source='user_services_params', many=True)
+
+    def __init__(self, *args, **kwargs):
+        fields = kwargs.pop('fields', None)
+
+        super(AppsSerializer, self).__init__(*args, **kwargs)
+
+        if fields:
+            allowed = set(fields)
+            existing = set(self.fields.keys())
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
 
 
     def get_app_uri(self, obj):
