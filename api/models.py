@@ -75,6 +75,7 @@ class UsersServicesParams(models.Model):
     users_service = models.ForeignKey(UsersServices, related_name='user_services_params')
     services_param = models.ForeignKey(ServiceParams, related_name='')
     price =  models.FloatField(default=0.0)
+    value = models.FloatField(null=True)
 
 class UsersServiceDomains(models.Model):
     users_service = models.ForeignKey(UsersServices, related_name='user_domains')

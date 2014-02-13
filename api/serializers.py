@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
 from django.forms import widgets
 from rest_framework import serializers
 from rest_framework.reverse import reverse
@@ -9,6 +10,8 @@ from api.models import ParamUnits
 from api.models import UsersServices
 from api.models import UsersServicesParams
 from api.models import UsersServiceDomains
+import math
+
 
 class UserListSerializer(serializers.HyperlinkedModelSerializer):
 
@@ -17,12 +20,11 @@ class UserListSerializer(serializers.HyperlinkedModelSerializer):
         fields = ('username', 'url')
         lookup_field = 'username'
 
+
 class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email')
-
-
 
 
 class ServicesListSerializerGET(serializers.HyperlinkedModelSerializer):
@@ -40,7 +42,6 @@ class ServicesListSerializerPOST(serializers.HyperlinkedModelSerializer):
         fields = ( 'service_name', 'url', 'description',  'available_to',
         'base_price', 'tax_class',)
         lookup_field = 'service_name'
-
 
 
 class ServiceDetailSerializer(serializers.HyperlinkedModelSerializer):
@@ -72,6 +73,7 @@ class ServiceParamsListSerializerGET(serializers.HyperlinkedModelSerializer):
 
         return reverse('param-detail', kwargs=kwargs, request=self.context['request'])
 
+
 class ServiceParamsListSerializerPOST(serializers.HyperlinkedModelSerializer):
     url = serializers.SerializerMethodField('get_param_url')
     unit = serializers.HyperlinkedRelatedField(view_name='units-detail',
@@ -97,17 +99,18 @@ class ServiceParamsDetailSerializer(serializers.ModelSerializer):
         fields = ('param_name', 'description', 'min_value', 'max_value',  'step_value',
                   'unit', 'unit_price', 'available_to', 'sort_order' )
 
+
 class TaxClassDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaxClass
 
-class ParamUnitsListSerializer(serializers.ModelSerializer):
 
+class ParamUnitsListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParamUnits
 
-class ParamUnitsDetailSerializer(serializers.ModelSerializer):
 
+class ParamUnitsDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParamUnits
 
@@ -115,10 +118,64 @@ class ParamUnitsDetailSerializer(serializers.ModelSerializer):
 ####################################################################
 
 class ParamsSerializer(serializers.Serializer):
-    pass
+    name = serializers.CharField(source='services_param')
+    value = serializers.FloatField()
+    price = serializers.FloatField(read_only=True, required=False)
+    value_units = serializers.SerializerMethodField('get_units')
+
+    def get_units(self, obj):
+        return obj.services_param.unit.unit
+
+    def validate_value(self, attrs, value):
+        if attrs['services_param'] is None:
+            raise serializers.ValidationError( "Param's name is required")
+        
+        try:
+            serviceparam = ServiceParams.objects.get(param_name=attrs['services_param'])
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError( "Param " +
+                    attrs['services_param'] + " does not exist." )
+        except: 
+            raise serializers.ValidationError( "Something went wrong d41d8c" )
+
+        modulo = ( math.fmod(( attrs['value'] - serviceparam.min_value),
+                serviceparam.step_value) )
+        
+        if modulo == 0.0:
+            return attrs
+        elif value < serviceparam.min_value or value > serviceparam.max_value:
+            raise serializers.ValidationError( "Value for " +
+                    attrs['services_param'] + 
+            "is out of allowed range: " + serviceparam.min_value + ":" +
+            serviceparam.max_value)
+        
+        elif modulo != 0.0:
+            raise serializers.ValidationError( "Value " + value + 
+            " is not multiplication of " + serviceparam.setp_value + ".")
+        else:
+            raise serializers.ValidationError( "Wrong value " + value )
+
+
+
+#    def restore_object(self, attrs, instance=None): 
+#        pass
+#    ''' 
+#    do aplikacji musza byc zawsze przypisane wszystkie mozliwe parametry
+#    uzytkownik moze wybrac tylko jedna wartosc
+#    tak wiec nazwa parametru zawsze bedzie tylko do odczytu i nie moze byc
+#    zmieniona
+#
+#    trzeba tez dodac standardowe przypisywanie parametrow; trzeba by to tez
+#    zabezpieczyc jakos na poziomie bazy danych jakas procedura skladowana czy
+#    czymws w tym rodzaju
+#    '''
+#
+ #   class Meta:
+ #       model = UsersServicesParams
+ #       fields = ('name', 'price', 'value', 'value_units')
+    
 
 class DomainSerializer(serializers.ModelSerializer):
-#    fqdn = serializers.URLField()
     class Meta:
         model = UsersServiceDomains
         fields = ('fqdn',)
@@ -129,10 +186,27 @@ class DomainSerializer(serializers.ModelSerializer):
                     instance.users_service)
             instance.fqdn = attrs.get('fqdn', instance.fqdn)
             return instance
-#
+
         domain = UsersServiceDomains()
         domain.fqdn = attrs['fqdn']
         return domain
+
+    def validate_fqdn(self, attrs, fqdn):
+        # TODO: add some challenge-response to prove that domain belongs to
+        # user
+
+        method = self.context['request'].method
+        domains = UsersServiceDomains.objects.filter(fqdn=attrs['fqdn']).count()
+        if method == 'POST' and domains == 0 :
+            return attrs
+        elif method == 'POST' and domains != 0:
+            raise serializers.ValidationError( "Domain " + attrs['fqdn'] + " already used.")
+        #when resource whth submited name exists
+        elif (method == 'PUT' or method == 'PATCH') and domains == 1 :
+            return attrs
+        else:
+            raise serializers.ValidationError( "Can\'t assign domain: " +
+                    attrs['fqdn'] + ".")
 
 
 class AppsSerializer(serializers.Serializer):
@@ -140,7 +214,9 @@ class AppsSerializer(serializers.Serializer):
     description = serializers.CharField(widget=widgets.Textarea,
                                              max_length=255)
     uri = serializers.SerializerMethodField('get_app_uri')
-    user_domains = DomainSerializer(many=True, allow_add_remove=True)
+    domains = DomainSerializer(source='user_domains', many=True, allow_add_remove=True)
+    params = ParamsSerializer(source='user_services_params', many=True)
+
 
     def get_app_uri(self, obj):
         return reverse('apps-detail', kwargs={'appname': obj}, request=self.context['request'] )
@@ -170,18 +246,51 @@ class AppsSerializer(serializers.Serializer):
             raise serializers.ValidationError( "Application " + attrs['name'] + "  exists.")
 
         else:
-            #print attrs
             return attrs
+
+    def validate(self, attrs):
+        application = Services.objects.get(service_name='application')
+        availableParams = ServiceParams.objects.filter(service=application)
+      
+        if len(availableParams) > len(attrs['user_services_params']):
+            raise serializers.ValidationError(
+            "Missing params. Please set all available params")
+        elif len(availableParams) < len(attrs['user_services_params']):
+            raise serializers.ValidationError(
+            "To many params.")
+        else:
+            app_params = []
+            for param in availableParams:
+                app_params.append(param.param_name)
+
+            for param in attrs['user_services_params']:
+                if param['services_param'] in app_params:
+                    app_params.remove(param['services_param'])
+                else:
+                    raise serializers.ValidationError("Param " +
+                             param['services_param'] + 
+                             " is invalid or redundant.")
+
+            if len(app_params) != 0:
+                raise serializers.ValidationError("Missing params")
+            else:
+                return attrs
+                #incoming_params.append(param['services_param'])
+
+        
+
 
 
     def restore_object(self, attrs, instance=None):
         if instance is not None:
+            """
+            TODO:
+            update also related/nested fields
+            """
             instance.name =  attrs.get('name', instance.name)
             instance.description = attrs.get('name', instance.name)
             return instance
 
-       # print dict(attrs)
-       # print attrs['user_domains']
         newUsersService = UsersServices()
         newUsersService.user = User.objects.get(username=self.context['request'].parser_context['view'].request.user )
 
@@ -191,10 +300,20 @@ class AppsSerializer(serializers.Serializer):
         newUsersService.save()
 
         for domain in attrs['user_domains']:
-            newDomain = UsersServiceDomains() #.objects.create(fqdn=domain['fqdn'])
+            newDomain = UsersServiceDomains() 
             newDomain = domain
             newUsersService.user_domains.add(newDomain)
-        
+        for param in attrs['user_services_params']:
+            serviceParam = ServiceParams.objects.get(
+                    param_name=param['services_param'])
+            newUsersParam = UsersServicesParams(
+                    services_param = serviceParam,
+                    value = param['value'],
+                    price = serviceParam.unit_price * param['value'],
+                    )
+            newUsersService.user_services_params.add(newUsersParam)
+
+
         return newUsersService
 
     def save(self, **kwargs):
