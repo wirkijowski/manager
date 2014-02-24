@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import MultipleObjectsReturned
 from django.forms import widgets
 from rest_framework import serializers
 from rest_framework.reverse import reverse
@@ -157,39 +158,53 @@ class ParamsSerializer(serializers.Serializer):
 
     
 
-class DomainSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UsersServiceDomains
-        fields = ('fqdn',)
-    
+class DomainSerializer(serializers.Serializer):
+    fqdn = serializers.URLField()
+
     def restore_object(self, attrs, instance=None):
-        if instance is not None:
-            instance.users_service =  attrs.get('users_service',
-                    instance.users_service)
-            instance.fqdn = attrs.get('fqdn', instance.fqdn)
-            return instance
+#        if instance is not None:
+#            instance.users_service =  attrs.get('users_service',
+#                    instance.users_service)
+#            instance.fqdn = attrs.get('fqdn', instance.fqdn)
+#            return instance
+#
+#        domain = UsersServiceDomains()
+#        domain.fqdn = attrs['fqdn']
+#        return domain
+        return attrs    
 
-        domain = UsersServiceDomains()
-        domain.fqdn = attrs['fqdn']
-        return domain
-
-    def validate_fqdn(self, attrs, fqdn):
+    def validate(self, attrs):
         # TODO: add some challenge-response to prove that domain belongs to
         # user
-
         method = self.context['request'].method
-        domains = UsersServiceDomains.objects.filter(fqdn=attrs['fqdn']).count()
-        if method == 'POST' and domains == 0 :
-            return attrs
-        elif method == 'POST' and domains != 0:
-            raise serializers.ValidationError( "Domain " + attrs['fqdn'] + " already used.")
-        #when resource whth submited name exists
-        elif (method == 'PUT' or method == 'PATCH') and domains == 1 :
-            return attrs
-        else:
+        usersService = UsersServices.objects.get(
+            user = User.objects.get(
+                username = ( self.context['request']
+                    .parser_context['view'].request.user )
+                ),
+            name = ( self.context['request'].parser_context['view']
+                .kwargs['appname'] ),
+            )
+      
+        
+        try:
+            domains = UsersServiceDomains.objects.get(fqdn=attrs['fqdn'])
+            print domains
+        except MultipleObjectsReturned:
+            # Fix to catch proper exception
             raise serializers.ValidationError( "Can\'t assign domain: " +
                     attrs['fqdn'] + ".")
 
+        except ObjectDoesNotExist:
+            return attrs
+        else:
+            if ( (method == 'PUT' or method == 'PATCH')  and
+                domains.users_service == usersService ):
+                return attrs
+            else:
+                raise serializers.ValidationError( "Domain " + attrs['fqdn'] + " already used.")
+    
+       
 
 class AppsSerializer(serializers.Serializer):
     name = serializers.CharField(required=True, max_length=60)
@@ -199,6 +214,7 @@ class AppsSerializer(serializers.Serializer):
     domains = DomainSerializer(source='user_domains', many=True, allow_add_remove=True)
     params = ParamsSerializer(source='user_services_params', many=True)
 
+    # some magic if selected fields are to be presented
     def __init__(self, *args, **kwargs):
         fields = kwargs.pop('fields', None)
 
@@ -268,46 +284,74 @@ class AppsSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Missing params")
             else:
                 return attrs
-                #incoming_params.append(param['services_param'])
-
-        
-
 
 
     def restore_object(self, attrs, instance=None):
-        if instance is not None:
-            """
-            TODO:
-            update also related/nested fields
-            """
-            instance.name =  attrs.get('name', instance.name)
-            instance.description = attrs.get('name', instance.name)
-            return instance
 
-        newUsersService = UsersServices()
-        newUsersService.user = User.objects.get(username=self.context['request'].parser_context['view'].request.user )
-
-        newUsersService.service = Services.objects.get(service_name='application')
-        newUsersService.name = attrs['name']
-        newUsersService.description = attrs['description']
-        newUsersService.save()
-
-        for domain in attrs['user_domains']:
-            newDomain = UsersServiceDomains() 
-            newDomain = domain
-            newUsersService.user_domains.add(newDomain)
-        for param in attrs['user_services_params']:
-            serviceParam = ServiceParams.objects.get(
-                    param_name=param['services_param'])
-            newUsersParam = UsersServicesParams(
-                    services_param = serviceParam,
-                    value = param['value'],
-                    price = serviceParam.unit_price * param['value'],
+        try:
+            usersService = UsersServices.objects.get(
+                    user = User.objects.get(
+                        username = ( self.context['request']
+                            .parser_context['view'].request.user )
+                        ),
+                    name = ( self.context['request'].parser_context['view']
+                        .kwargs['appname'] ),
                     )
-            newUsersService.user_services_params.add(newUsersParam)
+                    
+        except ObjectDoesNotExist:
+            usersService = UsersServices()
+            usersService.user = User.objects.get(username=self.context['request'].parser_context['view'].request.user )
 
+            usersService.service = Services.objects.get(service_name='application')
+        
+        usersService.name = attrs['name']
+        usersService.description = attrs['description']
+        usersService.save()
+        userDomains = usersService.user_domains
 
-        return newUsersService
+        # Delete domain if not in request. Remove domain from request 
+        # if already in db then insert into db what left in request.
+        if usersService.user_domains.count() > 0:
+            for domain in usersService.user_domains.all():
+                if domain not in attrs['user_domains']:
+                    domain.delete()
+           #     else:
+           #         atrrs['user_domains'].remove(domain)
+        if len(attrs['user_domains']) > 0:
+            for domain in attrs['user_domains']:
+                newDomain = UsersServiceDomains() 
+                newDomain.fqdn = domain['fqdn']
+                usersService.user_domains.add(newDomain)
+
+      
+        # Assign or update user's params
+        #
+        # If not assigned
+        if usersService.user_services_params.count() == 0:
+            userParams = []
+            for param in attrs['user_services_params']:
+                serviceParam = ServiceParams.objects.get(
+                    param_name=param['services_param'])
+                usersParam.append( UsersServicesParams(
+                        services_param = serviceParam,
+                        value = param['value'],
+                        price = serviceParam.unit_price * param['value'],
+                        ) )
+               
+            usersService.user_services_params = userParams 
+        # update assigned
+        else:
+            for param in attrs['user_services_params']:
+                userparam = usersService.user_services_params.get(
+                        services_param=ServiceParams.objects.get(
+                            param_name=param['services_param']
+                            )
+                        )
+                userparam.value = param['value']
+                userparam.save()
+
+        usersService.save()
+        return usersService
 
     def save(self, **kwargs):
         return self.object
