@@ -355,3 +355,40 @@ class AppsSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         return self.object
+
+class ServiceOptionsSerializer(serializers.Serializer):
+
+    name = serializers.SerializerMethodField('get_name')
+    description = serializers.SerializerMethodField('get_description')
+    params = serializers.SerializerMethodField('get_params')
+    domains =  serializers.SerializerMethodField('get_domains')
+    _base_price = serializers.SerializerMethodField('get_base_price')
+
+    
+    def get_name(self, obj):
+        return "<application name>"
+    
+    def get_description(self, obj):
+        return "<app description>"
+
+    def get_params(self, obj):
+        params = []
+        for param in obj.params.all():
+            tmp = {
+                    'name': param.param_name,
+                    'value': "<({0}, {1}, {2})>".format(param.min_value,
+                        param.max_value, param.step_value),
+                    '_unit': param.unit,
+                    '_unit_price': param.unit_price,
+                    }
+            params.append(tmp)
+        return params
+
+    def get_domains(self, obj):
+        domains = { 
+                'fqdn': "<fqdn>",
+                }
+        return [domains,]
+
+    def get_base_price(self, obj):
+        return obj.base_price

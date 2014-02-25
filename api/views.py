@@ -12,6 +12,7 @@ from api.serializers import TaxClassDetailSerializer
 from api.serializers import ParamUnitsListSerializer
 from api.serializers import ParamUnitsDetailSerializer
 from api.serializers import AppsSerializer
+from api.serializers import ServiceOptionsSerializer
 #from api.serializers import AppsSerializerGET
 from api.models import Services
 from api.models import ServiceParams
@@ -161,13 +162,21 @@ class ParamUnitsDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 class AppsList(APIView):
-#    serializer_class = AppsListSerializer
     def get_queryset(self):
         
         username = self.request.user
         return UsersServices.objects.filter(user=username,deleted=False)
 
-    
+    def metadata(self, request):
+        data = super(AppsList, self).metadata(request)
+        
+        application = Services.objects.get(service_name='application')
+        serializer = ServiceOptionsSerializer(application)
+        representation = { 'representation': serializer.data }
+        ret_data = dict(data.items() + representation.items() )
+        return ret_data 
+
+
     def pre_save(self, obj):
         obj.user = Users.objects.get(username=self.request.user)
         obj.service = Services.objects.get(service_name='application')
@@ -189,6 +198,16 @@ class AppsList(APIView):
 #        TODO in the future
 #        """
 class AppsDetail(APIView):
+
+    def metadata(self, request):
+        data = super(AppsDetail, self).metadata(request)
+        
+        application = Services.objects.get(service_name='application')
+        serializer = ServiceOptionsSerializer(application)
+        representation = { 'representation': serializer.data }
+        ret_data = dict(data.items() + representation.items() )
+        return ret_data 
+
 
     def get_object(self, appname):
         user = self.request.user

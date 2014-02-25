@@ -34,6 +34,9 @@ class ParamUnits(models.Model):
     class Meta:
         db_table = 'paramunits'
 
+    def __unicode__(self):
+        return self.unit
+
 class ServiceParams(models.Model):
     service = models.ForeignKey(Services, related_name='params')
     param_name = models.CharField(max_length=60)
