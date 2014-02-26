@@ -11,7 +11,9 @@ from api.serializers import ServiceParamsDetailSerializer
 from api.serializers import TaxClassDetailSerializer
 from api.serializers import ParamUnitsListSerializer
 from api.serializers import ParamUnitsDetailSerializer
-from api.serializers import AppsListSerializer
+from api.serializers import AppsSerializer
+from api.serializers import ServiceOptionsSerializer
+#from api.serializers import AppsSerializerGET
 from api.models import Services
 from api.models import ServiceParams
 from api.models import TaxClass
@@ -23,7 +25,11 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAdminUser
-
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from django.http import Http404
+from rest_framework import serializers
 
 @api_view(('GET',))
 def api_root(request, format=None):
@@ -155,27 +161,88 @@ class ParamUnitsDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ParamUnitsDetailSerializer
 
 
-class AppsList(generics.ListCreateAPIView):
-    serializer_class = AppsListSerializer
-
+class AppsList(APIView):
     def get_queryset(self):
-
+        
         username = self.request.user
-        return UsersServices.objects.filter(user=username)
+        return UsersServices.objects.filter(user=username,deleted=False)
+
+    def metadata(self, request):
+        data = super(AppsList, self).metadata(request)
+        
+        application = Services.objects.get(service_name='application')
+        serializer = ServiceOptionsSerializer(application)
+        representation = { 'representation': serializer.data }
+        ret_data = dict(data.items() + representation.items() )
+        return ret_data 
+
 
     def pre_save(self, obj):
-        obj.user = self.request.user
+        obj.user = Users.objects.get(username=self.request.user)
         obj.service = Services.objects.get(service_name='application')
+    def get(self, request, format=None):
+        serializer = AppsSerializer(self.get_queryset(), context={'request':
+            request}, fields= {'name', 'uri'})
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        serializer = AppsSerializer(data=request.DATA, context={'request':
+            request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#    def delete(self, request, format=None):
+#        """     
+#        TODO in the future
+#        """
+class AppsDetail(APIView):
+
+    def metadata(self, request):
+        data = super(AppsDetail, self).metadata(request)
+        
+        application = Services.objects.get(service_name='application')
+        serializer = ServiceOptionsSerializer(application)
+        representation = { 'representation': serializer.data }
+        ret_data = dict(data.items() + representation.items() )
+        return ret_data 
 
 
-class AppsDetail(generics.RetrieveUpdateDestroyAPIView):
-    #do przepisania na get_queryset
-    queryset = UsersServices.objects.all()
-    serializer_class = AppsListSerializer
-
-    def get_object(self):
-        #appname = 'druga aplikacja'
-        appname = self.kwargs['appname']
+    def get_object(self, appname):
         user = self.request.user
         service =  Services.objects.get(service_name='application')
-        return UsersServices.objects.get(name=appname, user=user, service=service)
+
+        try:
+            return UsersServices.objects.get(name=appname, user=user, service=service, deleted=False)
+        except UsersServices.DoesNotExist:
+            raise Http404
+
+    def get(self, request, appname, format=None):
+        usersservice = self.get_object(appname)
+        serializer = AppsSerializer(usersservice, context={'request': request})
+        return Response(serializer.data)
+        
+    def put(self, request, appname, format=None):
+        #usersservice = self.get_object(appname)
+        serializer = AppsSerializer(data=request.DATA, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    def delete(self, request, appname, format=None):
+        userservice = self.get_object(appname)
+        userservice.deleted = True
+        userservice.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class AppsPower(APIView):
+    
+    def get(self, request, appname, format=None):
+
+        return Response({ 'power': 'on' })
+

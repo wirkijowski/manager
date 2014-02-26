@@ -34,6 +34,9 @@ class ParamUnits(models.Model):
     class Meta:
         db_table = 'paramunits'
 
+    def __unicode__(self):
+        return self.unit
+
 class ServiceParams(models.Model):
     service = models.ForeignKey(Services, related_name='params')
     param_name = models.CharField(max_length=60)
@@ -72,12 +75,13 @@ class UsersServices(models.Model):
 
 
 class UsersServicesParams(models.Model):
-    users_service = models.ForeignKey(UsersServices, related_name='user-params')
-    services_param = models.ForeignKey(ServiceParams)
+    users_service = models.ForeignKey(UsersServices, related_name='user_services_params')
+    services_param = models.ForeignKey(ServiceParams, related_name='')
     price =  models.FloatField(default=0.0)
+    value = models.FloatField(null=True)
 
 class UsersServiceDomains(models.Model):
-    users_service = models.ForeignKey(UsersServices, related_name='user-domains')
+    users_service = models.ForeignKey(UsersServices, related_name='user_domains')
     fqdn = models.URLField(unique=True)
 
     class Meta:
