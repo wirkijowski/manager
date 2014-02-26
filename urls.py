@@ -49,6 +49,8 @@ urlpatterns = format_suffix_patterns(patterns('api.views',
         name='apps-list'),
     url(r'apps/(?P<appname>[\w]+)/$', AppsDetail.as_view(),
         name='apps-detail'),
+    url(r'apps/(?P<appname>[\w]+)/power/$', AppsPower.as_view(),
+        name='apps-power'),
     # Uncomment the admin/doc line below to enable admin documentation:
     # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
 

@@ -239,3 +239,10 @@ class AppsDetail(APIView):
         userservice.save()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class AppsPower(APIView):
+    
+    def get(self, request, appname, format=None):
+
+        return Response({ 'power': 'on' })
+

@@ -213,6 +213,7 @@ class AppsSerializer(serializers.Serializer):
     uri = serializers.SerializerMethodField('get_app_uri')
     domains = DomainSerializer(source='user_domains', many=True, allow_add_remove=True)
     params = ParamsSerializer(source='user_services_params', many=True)
+    power = serializers.SerializerMethodField('get_power_handler')
 
     # some magic if selected fields are to be presented
     def __init__(self, *args, **kwargs):
@@ -229,6 +230,10 @@ class AppsSerializer(serializers.Serializer):
 
     def get_app_uri(self, obj):
         return reverse('apps-detail', kwargs={'appname': obj}, request=self.context['request'] )
+
+    def get_power_handler(self, obj):
+        return reverse('apps-power', kwargs={'appname': obj},
+                request=self.context['request'])
 
     def validate_name(self, attrs, name):
 
